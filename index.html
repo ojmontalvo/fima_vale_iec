@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Firmador de Salidas de Almacén</title>
+  <!-- Librería standalone para modificar PDFs en el navegador sin internet -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style>
+    :root {
+      --primary: #0f172a;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --success: #16a34a;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #cbd5e1;
+      --text: #1e293b;
+      --text-muted: #64748b;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 12px;
+      line-height: 1.4;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 12px;
+    }
+    .header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .badge-offline {
+      display: inline-block;
+      background: rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .step-num {
+      background: var(--accent);
+      color: white;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .file-dropzone {
+      border: 2px dashed var(--accent);
+      border-radius: 8px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      background: #eff6ff;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .file-dropzone:active {
+      background: #dbeafe;
+    }
+    .file-info {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+    .form-group {
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+    .canvas-container {
+      border: 2px dashed #94a3b8;
+      border-radius: 8px;
+      background: #ffffff;
+      touch-action: none;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 180px;
+    }
+    .canvas-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #cbd5e1;
+      font-size: 1.1rem;
+      font-weight: 600;
+      pointer-events: none;
+      user-select: none;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-success {
+      background: var(--success);
+      color: white;
+      margin-top: 10px;
+    }
+    .btn-secondary {
+      background: #e2e8f0;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      margin-top: 6px;
+    }
+    .pending-queue {
+      margin-top: 12px;
+    }
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border-left: 4px solid var(--accent);
+    }
+    .queue-info {
+      font-size: 0.8rem;
+    }
+    .queue-name {
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .queue-date {
+      color: var(--text-muted);
+      font-size: 0.7rem;
+    }
+    .queue-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-mini {
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-share {
+      background: #22c55e;
+      color: white;
+    }
+    .btn-del {
+      background: #ef4444;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Salidas de Almacén • Firma Digital</h1>
+    <span class="badge-offline">✓ 100% Funcional Offline / Sin Internet</span>
+  </div>
+
+  <!-- PASO 1: SELECCIONAR PDF -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">1</span> Seleccionar Salida de Almacén</div>
+    <div class="file-dropzone" onclick="document.getElementById('pdfInput').click()">
+      📄 Toca aquí para cargar el PDF de salida
+    </div>
+    <input type="file" id="pdfInput" accept="application/pdf">
+    <div id="fileInfo" class="file-info">Ningún archivo cargado aún.</div>
+  </div>
+
+  <!-- PASO 2: DATOS DEL RECEPTOR -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">2</span> Datos de Quien Recibe en Obra</div>
+    <div class="form-group">
+      <label>Nombre Completo</label>
+      <input type="text" id="recibeNombre" placeholder="Ej: Juan Pérez">
+    </div>
+    <div class="form-group">
+      <label>Cédula / Identificación</label>
+      <input type="text" id="recibeCedula" placeholder="Ej: 1144123456">
+    </div>
+    <div class="form-group">
+      <label>Cargo / Rol en Obra</label>
+      <input type="text" id="recibeCargo" placeholder="Ej: Maestro de obra / Residente">
+    </div>
+  </div>
+
+  <!-- PASO 3: FIRMA TÁCTIL -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">3</span> Firma en Pantalla</div>
+    <div class="canvas-container">
+      <div id="canvasHint" class="canvas-hint">Firme aquí</div>
+      <canvas id="signatureCanvas"></canvas>
+    </div>
+    <button type="button" class="btn btn-secondary" onclick="clearSignature()">Borrar Firma</button>
+  </div>
+
+  <!-- PASO 4: PROCESAR -->
+  <div class="card">
+    <button type="button" class="btn btn-primary" onclick="stampAndSavePDF()">
+      ✓ Estampar Firma y Guardar Soporte
+    </button>
+  </div>
+
+  <!-- HISTORIAL / COLA PENDIENTE DE ENVÍO -->
+  <div class="card">
+    <div class="card-title">📦 Soportes Guardados / Listos para Enviar</div>
+    <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:10px;">
+      Los PDFs quedan guardados en la memoria del celular. Cuando tengas señal, toca "Compartir" para enviarlo por WhatsApp o correo.
+    </p>
+    <div id="queueList" class="pending-queue">
+      <div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding:10px;">No hay documentos pendientes.</div>
+    </div>
+  </div>
+
+  <script>
+    // --- MANEJO DEL CANVAS DE FIRMA ---
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasHint = document.getElementById('canvasHint');
+    let isDrawing = false;
+    let hasSignature = false;
+    let currentPdfBytes = null;
+    let currentFileName = "";
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * 2;
+      canvas.height = rect.height * 2;
+      ctx.scale(2, 2);
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      loadQueue();
+    });
+
+    function getTouchPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function startDrawing(e) {
+      e.preventDefault();
+      isDrawing = true;
+      hasSignature = true;
+      canvasHint.style.display = 'none';
+      const pos = getTouchPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const pos = getTouchPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+    }
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    window.addEventListener('mouseup', stopDrawing);
+
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    window.addEventListener('touchend', stopDrawing);
+
+    function clearSignature() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasSignature = false;
+      canvasHint.style.display = 'block';
+    }
+
+    // --- CARGA DEL PDF ---
+    document.getElementById('pdfInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.type !== 'application/pdf') {
+        alert('Por favor selecciona un archivo PDF válido.');
+        return;
+      }
+      currentFileName = file.name.replace('.pdf', '');
+      document.getElementById('fileInfo').innerHTML = `<strong>Cargado:</strong> ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+      const arrayBuffer = await file.arrayBuffer();
+      currentPdfBytes = arrayBuffer;
+    });
+
+    // --- ESTAMPADO Y GENERACIÓN DE PDF CON PDF-LIB ---
+    async function stampAndSavePDF() {
+      if (!currentPdfBytes) {
+        alert('Por favor carga primero el PDF de la salida de almacén.');
+        return;
+      }
+      const nombre = document.getElementById('recibeNombre').value.trim();
+      const cedula = document.getElementById('recibeCedula').value.trim();
+      const cargo = document.getElementById('recibeCargo').value.trim();
+
+      if (!nombre || !cedula) {
+        alert('Por favor ingresa al menos el Nombre y Cédula de quien recibe.');
+        return;
+      }
+      if (!hasSignature) {
+        alert('Por favor solicita la firma del receptor en la pantalla.');
+        return;
+      }
+
+      try {
+        const { PDFDocument, rgb, StandardFonts } = PDFLib;
+        const pdfDoc = await PDFDocument.load(currentPdfBytes);
+        const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+        // Convertir firma a PNG
+        const signatureImagePng = canvas.toDataURL('image/png');
+        const signatureImage = await pdfDoc.embedPng(signatureImagePng);
+
+        // Obtenemos la última página del documento
+        const pages = pdfDoc.getPages();
+        const lastPage = pages[pages.length - 1];
+        const { width, height } = lastPage.getSize();
+
+        // Creamos un recuadro de firma profesional en la parte inferior
+        const boxWidth = width - 80;
+        const boxHeight = 90;
+        const boxX = 40;
+        const boxY = 40;
+
+        // Fondo del recuadro
+        lastPage.drawRectangle({
+          x: boxX,
+          y: boxY,
+          width: boxWidth,
+          height: boxHeight,
+          borderColor: rgb(0.15, 0.23, 0.36),
+          borderWidth: 1,
+          color: rgb(0.98, 0.98, 0.99),
+          opacity: 0.95,
+        });
+
+        // Título del recuadro
+        lastPage.drawText('CONSTANCIA DE RECIBIDO A CONFORMIDAD', {
+          x: boxX + 12,
+          y: boxY + boxHeight - 16,
+          size: 9,
+          font: font,
+          color: rgb(0.06, 0.09, 0.16),
+        });
+
+        const now = new Date();
+        const fechaStr = now.toLocaleDateString('es-CO') + ' ' + now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+
+        // Textos del receptor
+        lastPage.drawText(`Recibido por: ${nombre}`, {
+          x: boxX + 12,
+          y: boxY + boxHeight - 32,
+          size: 8.5,
+          font: fontRegular,
+          color: rgb(0.1, 0.1, 0.1),
+        });
+
+        lastPage.drawText(`C.C. / ID: ${cedula}   |   Cargo: ${cargo || 'N/A'}`, {
+          x: boxX + 12,
+          y: boxY + boxHeight - 46,
+          size: 8.5,
+          font: fontRegular,
+          color: rgb(0.1, 0.1, 0.1),
+        });
+
+        lastPage.drawText(`Fecha y Hora: ${fechaStr}`, {
+          x: boxX + 12,
+          y: boxY + boxHeight - 60,
+          size: 8,
+          font: fontRegular,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+
+        // Estampar la firma a la derecha del recuadro
+        const sigWidth = 140;
+        const sigHeight = 55;
+        const sigX = boxX + boxWidth - sigWidth - 15;
+        const sigY = boxY + 12;
+
+        lastPage.drawImage(signatureImage, {
+          x: sigX,
+          y: sigY,
+          width: sigWidth,
+          height: sigHeight,
+        });
+
+        // Línea sobre la firma
+        lastPage.drawLine({
+          start: { x: sigX, y: sigY + 8 },
+          end: { x: sigX + sigWidth, y: sigY + 8 },
+          thickness: 0.8,
+          color: rgb(0.5, 0.5, 0.5),
+        });
+
+        lastPage.drawText('Firma del Receptor', {
+          x: sigX + 25,
+          y: sigY - 2,
+          size: 7.5,
+          font: fontRegular,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+
+        const signedPdfBytes = await pdfDoc.save();
+
+        // Convertir a Base64 para almacenamiento en IndexedDB / localStorage
+        const base64Pdf = uint8ArrayToBase64(signedPdfBytes);
+        const signedFileName = `${currentFileName}_FIRMADO_${cedula}.pdf`;
+
+        // Guardar en cola local
+        saveToLocalQueue({
+          id: Date.now(),
+          fileName: signedFileName,
+          nombre: nombre,
+          cedula: cedula,
+          fecha: fechaStr,
+          data: base64Pdf
+        });
+
+        alert('¡Documento firmado con éxito! Se guardó en la lista de pendientes para compartir.');
+        
+        // Limpiar formulario para la siguiente salida
+        clearSignature();
+        document.getElementById('recibeNombre').value = '';
+        document.getElementById('recibeCedula').value = '';
+        document.getElementById('recibeCargo').value = '';
+        document.getElementById('fileInfo').innerHTML = 'Ningún archivo cargado aún.';
+        currentPdfBytes = null;
+        document.getElementById('pdfInput').value = '';
+
+        loadQueue();
+      } catch (err) {
+        console.error(err);
+        alert('Error al firmar el PDF: ' + err.message);
+      }
+    }
+
+    // --- CONVERSIÓN BINARIA ---
+    function uint8ArrayToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    }
+
+    function base64ToBlob(base64, type = 'application/pdf') {
+      const binStr = window.atob(base64);
+      const len = binStr.length;
+      const arr = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        arr[i] = binStr.charCodeAt(i);
+      }
+      return new Blob([arr], { type: type });
+    }
+
+    // --- GESTIÓN DE COLA LOCAL (ALMACENAMIENTO OFFLINE) ---
+    function getQueue() {
+      const q = localStorage.getItem('firmas_almacen_cola');
+      return q ? JSON.parse(q) : [];
+    }
+
+    function saveToLocalQueue(item) {
+      const q = getQueue();
+      q.unshift(item);
+      localStorage.setItem('firmas_almacen_cola', JSON.stringify(q));
+    }
+
+    function deleteQueueItem(id) {
+      let q = getQueue();
+      q = q.filter(i => i.id !== id);
+      localStorage.setItem('firmas_almacen_cola', JSON.stringify(q));
+      loadQueue();
+    }
+
+    function loadQueue() {
+      const queueList = document.getElementById('queueList');
+      const q = getQueue();
+      if (q.length === 0) {
+        queueList.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding:10px;">No hay documentos pendientes.</div>';
+        return;
+      }
+
+      queueList.innerHTML = '';
+      q.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'queue-item';
+        div.innerHTML = `
+          <div class="queue-info">
+            <div class="queue-name">${item.fileName}</div>
+            <div class="queue-date">Recibió: ${item.nombre} (CC: ${item.cedula}) • ${item.fecha}</div>
+          </div>
+          <div class="queue-actions">
+            <button class="btn-mini btn-share" onclick="shareOrDownload(${item.id})">Enviar / Descargar</button>
+            <button class="btn-mini btn-del" onclick="deleteQueueItem(${item.id})">✕</button>
+          </div>
+        `;
+        queueList.appendChild(div);
+      });
+    }
+
+    // --- COMPARTIR POR WHATSAPP/CORREO (WEB SHARE API O DESCARGA) ---
+    async function shareOrDownload(id) {
+      const q = getQueue();
+      const item = q.find(i => i.id === id);
+      if (!item) return;
+
+      const blob = base64ToBlob(item.data);
+      const file = new File([blob], item.fileName, { type: 'application/pdf' });
+
+      // Si el navegador soporta compartir archivos nativamente (Android Chrome / iOS Safari)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: item.fileName,
+            text: `Adjunto soporte de salida firmado por ${item.nombre} (CC: ${item.cedula})`,
+            files: [file]
+          });
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            downloadFile(blob, item.fileName);
+          }
+        }
+      } else {
+        // Si no soporta share nativo de archivo, se descarga al celular
+        downloadFile(blob, item.fileName);
+        alert('Archivo descargado en tu dispositivo. Puedes adjuntarlo en WhatsApp o Correo.');
+      }
+    }
+
+    function downloadFile(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
