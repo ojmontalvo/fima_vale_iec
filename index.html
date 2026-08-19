@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Firmador de Salidas de Almacén</title>
-  <!-- Librería para modificar PDFs sin servidor -->
+  <!-- Librería para modificar PDFs en el cliente sin servidor -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <style>
     :root {
@@ -120,7 +120,8 @@
       border-radius: 6px;
       background: #f1f5f9;
       color: var(--text-muted);
-      margin-top: 6px;
+      margin-top: 4px;
+      margin-bottom: 8px;
     }
     .queue-item {
       display: flex;
@@ -151,7 +152,7 @@
 
   <div class="header">
     <h1>Salidas de Almacén • Firma Digital</h1>
-    <p>Sincronizado con Google Drive • Modo Offline</p>
+    <p>Ingeniero ➔ Obra ➔ Firma ➔ Drive</p>
   </div>
 
   <!-- CONFIGURACIÓN API GOOGLE APPS SCRIPT -->
@@ -162,21 +163,29 @@
     <button class="btn btn-secondary" onclick="saveScriptUrl()">Guardar Conexión</button>
   </div>
 
-  <!-- PASO 1: SELECCIONAR OBRA Y PDF -->
+  <!-- PASO 1: SELECCIONAR INGENIERO, OBRA Y PDF -->
   <div class="card">
-    <div class="card-title"><span class="step-num">1</span> Seleccionar Obra y Despacho</div>
+    <div class="card-title"><span class="step-num">1</span> Seleccionar Despacho</div>
     
-    <label>Obra / Ingeniero</label>
-    <select id="selectObra" onchange="onObraSelected()">
-      <option value="">-- Selecciona una obra --</option>
+    <!-- NIVEL 1: INGENIERO -->
+    <label>1. Ingeniero Responsable</label>
+    <select id="selectIngeniero" onchange="onIngenieroSelected()">
+      <option value="">-- Selecciona un Ingeniero --</option>
     </select>
-    <button class="btn btn-secondary" onclick="fetchObras()" style="margin-bottom: 12px;">🔄 Actualizar Carpetas de Drive</button>
+    <button class="btn btn-secondary" onclick="fetchIngenieros()" style="margin-bottom: 12px;">🔄 Actualizar Lista de Ingenieros</button>
 
-    <label>Salida de Almacén (PDF Pendiente)</label>
-    <select id="selectPdf" onchange="onPdfSelected()">
-      <option value="">-- Selecciona un archivo PDF --</option>
+    <!-- NIVEL 2: OBRA -->
+    <label>2. Obra / Proyecto</label>
+    <select id="selectObra" onchange="onObraSelected()">
+      <option value="">-- Primero selecciona un ingeniero --</option>
     </select>
-    <div id="pdfStatus" class="status-msg">Selecciona una obra para ver los despachos pendientes.</div>
+
+    <!-- NIVEL 3: PDF PENDIENTE -->
+    <label>3. Salida de Almacén (PDF Pendiente)</label>
+    <select id="selectPdf" onchange="onPdfSelected()">
+      <option value="">-- Selecciona una obra primero --</option>
+    </select>
+    <div id="pdfStatus" class="status-msg">Selecciona un ingeniero y obra para ver los PDFs pendientes.</div>
   </div>
 
   <!-- PASO 2: DATOS DEL RECEPTOR -->
@@ -187,7 +196,7 @@
     <label>Cédula / Identificación</label>
     <input type="text" id="recibeCedula" placeholder="Ej: 1144123456">
     <label>Cargo / Rol en Obra</label>
-    <input type="text" id="recibeCargo" placeholder="Ej: Residente / Maestro">
+    <input type="text" id="recibeCargo" placeholder="Ej: Residente / Maestro de obra">
   </div>
 
   <!-- PASO 3: FIRMA TÁCTIL -->
@@ -223,7 +232,7 @@
     let currentPdfBytes = null;
     let currentFileName = '';
     let currentFileId = '';
-    let currentFolderId = '';
+    let currentObraId = '';
 
     // --- MANEJO CANVAS FIRMA ---
     const canvas = document.getElementById('signatureCanvas');
@@ -248,7 +257,7 @@
       resizeCanvas();
       if (SCRIPT_URL) {
         document.getElementById('scriptUrlInput').value = SCRIPT_URL;
-        fetchObras();
+        fetchIngenieros();
       }
       loadQueueUI();
     });
@@ -291,53 +300,91 @@
       canvasHint.style.display = 'block';
     }
 
-    // --- CONEXIÓN GOOGLE APPS SCRIPT ---
+    // --- CONEXIÓN APPS SCRIPT ---
     function saveScriptUrl() {
       const url = document.getElementById('scriptUrlInput').value.trim();
-      if (!url) return alert('Por favor ingresa la URL de Apps Script');
+      if (!url) return alert('Ingresa la URL de Apps Script');
       localStorage.setItem('gas_script_url', url);
       SCRIPT_URL = url;
-      alert('URL guardada. Cargando obras...');
-      fetchObras();
+      alert('URL guardada. Cargando ingenieros...');
+      fetchIngenieros();
     }
 
-    async function fetchObras() {
+    // 1. Cargar Ingenieros (Nivel 1)
+    async function fetchIngenieros() {
       if (!SCRIPT_URL) return;
-      const selectObra = document.getElementById('selectObra');
-      selectObra.innerHTML = '<option>Cargando obras...</option>';
+      const selectIng = document.getElementById('selectIngeniero');
+      selectIng.innerHTML = '<option>Cargando ingenieros...</option>';
       try {
-        const res = await fetch(`${SCRIPT_URL}?action=getObras`);
+        const res = await fetch(`${SCRIPT_URL}?action=getIngenieros`);
         const data = await res.json();
         if (data.success) {
-          selectObra.innerHTML = '<option value="">-- Selecciona una obra --</option>';
+          selectIng.innerHTML = '<option value="">-- Selecciona un Ingeniero --</option>';
+          data.ingenieros.forEach(ing => {
+            const opt = document.createElement('option');
+            opt.value = ing.id;
+            opt.textContent = ing.nombre;
+            selectIng.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        selectIng.innerHTML = '<option value="">Error cargando ingenieros (revisa conexión)</option>';
+      }
+    }
+
+    // 2. Al seleccionar Ingeniero -> Cargar sus Obras (Nivel 2)
+    async function onIngenieroSelected() {
+      const ingId = document.getElementById('selectIngeniero').value;
+      const selectObra = document.getElementById('selectObra');
+      const selectPdf = document.getElementById('selectPdf');
+      const pdfStatus = document.getElementById('pdfStatus');
+
+      selectPdf.innerHTML = '<option value="">-- Selecciona una obra primero --</option>';
+      pdfStatus.textContent = 'Selecciona una obra para ver los despachos pendientes.';
+
+      if (!ingId) {
+        selectObra.innerHTML = '<option value="">-- Primero selecciona un ingeniero --</option>';
+        return;
+      }
+
+      selectObra.innerHTML = '<option>Cargando obras del ingeniero...</option>';
+
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=getObras&ingenieroId=${ingId}`);
+        const data = await res.json();
+        if (data.success && data.obras.length > 0) {
+          selectObra.innerHTML = '<option value="">-- Selecciona una Obra --</option>';
           data.obras.forEach(o => {
             const opt = document.createElement('option');
             opt.value = o.id;
             opt.textContent = o.nombre;
             selectObra.appendChild(opt);
           });
+        } else {
+          selectObra.innerHTML = '<option value="">No hay obras en esta carpeta</option>';
         }
       } catch (err) {
-        selectObra.innerHTML = '<option value="">Error cargando obras (sin conexión)</option>';
+        selectObra.innerHTML = '<option value="">Error al cargar obras</option>';
       }
     }
 
+    // 3. Al seleccionar Obra -> Cargar PDFs pendientes (Nivel 3)
     async function onObraSelected() {
       const obraId = document.getElementById('selectObra').value;
-      currentFolderId = obraId;
+      currentObraId = obraId;
       const selectPdf = document.getElementById('selectPdf');
       const pdfStatus = document.getElementById('pdfStatus');
-      
+
       if (!obraId) {
-        selectPdf.innerHTML = '<option value="">-- Selecciona un archivo PDF --</option>';
+        selectPdf.innerHTML = '<option value="">-- Selecciona una obra primero --</option>';
         return;
       }
 
       selectPdf.innerHTML = '<option>Buscando PDFs pendientes...</option>';
-      pdfStatus.textContent = 'Consultando carpeta Pendientes en Drive...';
+      pdfStatus.textContent = 'Buscando en la carpeta Pendientes...';
 
       try {
-        const res = await fetch(`${SCRIPT_URL}?action=getPdfs&folderId=${obraId}`);
+        const res = await fetch(`${SCRIPT_URL}?action=getPdfs&obraId=${obraId}`);
         const data = await res.json();
         if (data.success && data.files.length > 0) {
           selectPdf.innerHTML = '<option value="">-- Selecciona un archivo PDF --</option>';
@@ -353,10 +400,11 @@
           pdfStatus.textContent = 'No hay archivos en la carpeta Pendientes de esta obra.';
         }
       } catch (err) {
-        pdfStatus.textContent = 'Modo offline: Selecciona un archivo local o conecta a red.';
+        pdfStatus.textContent = 'Error consultando archivos.';
       }
     }
 
+    // 4. Descargar PDF seleccionado
     async function onPdfSelected() {
       const fileId = document.getElementById('selectPdf').value;
       if (!fileId) return;
@@ -375,19 +423,19 @@
           pdfStatus.textContent = `✓ PDF listo para firma: ${currentFileName}.pdf`;
         }
       } catch (err) {
-        pdfStatus.textContent = 'Error al descargar PDF. Verifica tu conexión.';
+        pdfStatus.textContent = 'Error al descargar el PDF.';
       }
     }
 
     // --- FIRMADO DE PDF ---
     async function stampAndProcessPDF() {
-      if (!currentPdfBytes) return alert('Por favor selecciona primero un PDF.');
+      if (!currentPdfBytes) return alert('Por favor selecciona primero un PDF pendiente.');
       const nombre = document.getElementById('recibeNombre').value.trim();
       const cedula = document.getElementById('recibeCedula').value.trim();
       const cargo = document.getElementById('recibeCargo').value.trim();
 
       if (!nombre || !cedula) return alert('Ingresa Nombre y Cédula de quien recibe.');
-      if (!hasSignature) return alert('Por favor solicita la firma del receptor.');
+      if (!hasSignature) return alert('Por favor solicita la firma del receptor en la pantalla.');
 
       try {
         const { PDFDocument, rgb, StandardFonts } = PDFLib;
@@ -439,7 +487,7 @@
 
         const itemData = {
           id: Date.now(),
-          folderId: currentFolderId,
+          obraId: currentObraId,
           originalFileId: currentFileId,
           fileName: signedFileName,
           nombre: nombre,
@@ -449,11 +497,9 @@
           synced: false
         };
 
-        // Guardar en cola local
         saveToQueue(itemData);
-        alert('✓ Despacho firmado. Intentando subir a Google Drive...');
+        alert('✓ Despacho firmado. Subiendo a la carpeta Firmados...');
 
-        // Intentar subir de inmediato
         await uploadToDrive(itemData);
 
         // Limpiar
@@ -467,15 +513,15 @@
       }
     }
 
-    // --- SINCRONIZACIÓN DRIVE ---
+    // --- SINCRONIZACIÓN CON DRIVE ---
     async function uploadToDrive(item) {
       if (!SCRIPT_URL) return;
       try {
         const res = await fetch(SCRIPT_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain' }, // CORS friendly con GAS
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
-            folderId: item.folderId,
+            obraId: item.obraId,
             originalFileId: item.originalFileId,
             fileName: item.fileName,
             base64: item.base64
@@ -487,7 +533,7 @@
           alert(`✓ Archivo subido con éxito a la carpeta 'Firmados' en Google Drive.`);
         }
       } catch (err) {
-        console.log('Sin internet. Se mantendrá en cola para subir después.');
+        console.log('Sin señal. Queda pendiente para sincronizar luego.');
       }
       loadQueueUI();
     }
@@ -500,7 +546,7 @@
       }
     }
 
-    // --- HELPERS LOCALES ---
+    // --- HELPERS ---
     function uint8ArrayToBase64(buf) {
       let bin = '';
       const b = new Uint8Array(buf);
