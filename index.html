@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Firmador de Salidas de Almacén</title>
-  <!-- Librería standalone para modificar PDFs en el navegador sin internet -->
+  <!-- Librería para modificar PDFs sin servidor -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <style>
     :root {
@@ -18,12 +18,7 @@
       --text: #1e293b;
       --text-muted: #64748b;
     }
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
@@ -33,37 +28,19 @@
     }
     .header {
       text-align: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       padding: 12px;
       background: var(--primary);
       color: #fff;
       border-radius: 12px;
     }
-    .header h1 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-    .header p {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      margin-top: 2px;
-    }
-    .badge-offline {
-      display: inline-block;
-      background: rgba(34, 197, 94, 0.2);
-      color: #4ade80;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 0.65rem;
-      font-weight: 600;
-      margin-top: 4px;
-    }
+    .header h1 { font-size: 1.15rem; font-weight: 700; }
+    .header p { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
     .card {
       background: var(--card-bg);
       border-radius: 12px;
       padding: 16px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       border: 1px solid var(--border);
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
@@ -87,52 +64,23 @@
       justify-content: center;
       font-size: 0.75rem;
     }
-    input[type="file"] {
-      display: none;
-    }
-    .file-dropzone {
-      border: 2px dashed var(--accent);
-      border-radius: 8px;
-      padding: 18px;
-      text-align: center;
-      cursor: pointer;
-      background: #eff6ff;
-      color: var(--accent);
-      font-weight: 600;
-      font-size: 0.85rem;
-      transition: all 0.2s;
-    }
-    .file-dropzone:active {
-      background: #dbeafe;
-    }
-    .file-info {
-      margin-top: 8px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      word-break: break-all;
-    }
-    .form-group {
-      margin-bottom: 10px;
-    }
-    label {
-      display: block;
-      font-size: 0.78rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    input[type="text"] {
+    select, input[type="text"] {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 0.9rem;
       outline: none;
+      background: white;
+      margin-bottom: 8px;
     }
-    input[type="text"]:focus {
-      border-color: var(--accent);
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text-muted);
+      text-transform: uppercase;
     }
     .canvas-container {
       border: 2px dashed #94a3b8;
@@ -142,11 +90,7 @@
       position: relative;
       overflow: hidden;
     }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 180px;
-    }
+    canvas { display: block; width: 100%; height: 180px; }
     .canvas-hint {
       position: absolute;
       top: 50%;
@@ -156,7 +100,6 @@
       font-size: 1.1rem;
       font-weight: 600;
       pointer-events: none;
-      user-select: none;
     }
     .btn {
       display: block;
@@ -168,55 +111,30 @@
       border: none;
       cursor: pointer;
       text-align: center;
-      transition: background 0.2s, transform 0.1s;
     }
-    .btn:active {
-      transform: scale(0.98);
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-    .btn-success {
-      background: var(--success);
-      color: white;
-      margin-top: 10px;
-    }
-    .btn-secondary {
-      background: #e2e8f0;
-      color: var(--text);
-      padding: 8px 12px;
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-secondary { background: #e2e8f0; color: var(--text); padding: 8px 12px; font-size: 0.8rem; margin-top: 6px; }
+    .status-msg {
       font-size: 0.8rem;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #f1f5f9;
+      color: var(--text-muted);
       margin-top: 6px;
-    }
-    .pending-queue {
-      margin-top: 12px;
     }
     .queue-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 10px 12px;
-      background: #f1f5f9;
+      background: #f8fafc;
+      border: 1px solid var(--border);
       border-radius: 8px;
       margin-bottom: 8px;
       border-left: 4px solid var(--accent);
     }
-    .queue-info {
-      font-size: 0.8rem;
-    }
-    .queue-name {
-      font-weight: 700;
-      color: var(--primary);
-    }
-    .queue-date {
-      color: var(--text-muted);
-      font-size: 0.7rem;
-    }
-    .queue-actions {
-      display: flex;
-      gap: 6px;
-    }
+    .queue-name { font-weight: 700; font-size: 0.82rem; color: var(--primary); }
+    .queue-date { color: var(--text-muted); font-size: 0.7rem; }
     .btn-mini {
       padding: 6px 10px;
       font-size: 0.75rem;
@@ -224,13 +142,7 @@
       border-radius: 6px;
       border: none;
       cursor: pointer;
-    }
-    .btn-share {
       background: #22c55e;
-      color: white;
-    }
-    .btn-del {
-      background: #ef4444;
       color: white;
     }
   </style>
@@ -239,34 +151,43 @@
 
   <div class="header">
     <h1>Salidas de Almacén • Firma Digital</h1>
-    <span class="badge-offline">✓ 100% Funcional Offline / Sin Internet</span>
+    <p>Sincronizado con Google Drive • Modo Offline</p>
   </div>
 
-  <!-- PASO 1: SELECCIONAR PDF -->
+  <!-- CONFIGURACIÓN API GOOGLE APPS SCRIPT -->
+  <div class="card" id="configSection">
+    <div class="card-title">⚙️ Conexión con Google Apps Script</div>
+    <label>URL de la Web App de Apps Script</label>
+    <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+    <button class="btn btn-secondary" onclick="saveScriptUrl()">Guardar Conexión</button>
+  </div>
+
+  <!-- PASO 1: SELECCIONAR OBRA Y PDF -->
   <div class="card">
-    <div class="card-title"><span class="step-num">1</span> Seleccionar Salida de Almacén</div>
-    <div class="file-dropzone" onclick="document.getElementById('pdfInput').click()">
-      📄 Toca aquí para cargar el PDF de salida
-    </div>
-    <input type="file" id="pdfInput" accept="application/pdf">
-    <div id="fileInfo" class="file-info">Ningún archivo cargado aún.</div>
+    <div class="card-title"><span class="step-num">1</span> Seleccionar Obra y Despacho</div>
+    
+    <label>Obra / Ingeniero</label>
+    <select id="selectObra" onchange="onObraSelected()">
+      <option value="">-- Selecciona una obra --</option>
+    </select>
+    <button class="btn btn-secondary" onclick="fetchObras()" style="margin-bottom: 12px;">🔄 Actualizar Carpetas de Drive</button>
+
+    <label>Salida de Almacén (PDF Pendiente)</label>
+    <select id="selectPdf" onchange="onPdfSelected()">
+      <option value="">-- Selecciona un archivo PDF --</option>
+    </select>
+    <div id="pdfStatus" class="status-msg">Selecciona una obra para ver los despachos pendientes.</div>
   </div>
 
   <!-- PASO 2: DATOS DEL RECEPTOR -->
   <div class="card">
     <div class="card-title"><span class="step-num">2</span> Datos de Quien Recibe en Obra</div>
-    <div class="form-group">
-      <label>Nombre Completo</label>
-      <input type="text" id="recibeNombre" placeholder="Ej: Juan Pérez">
-    </div>
-    <div class="form-group">
-      <label>Cédula / Identificación</label>
-      <input type="text" id="recibeCedula" placeholder="Ej: 1144123456">
-    </div>
-    <div class="form-group">
-      <label>Cargo / Rol en Obra</label>
-      <input type="text" id="recibeCargo" placeholder="Ej: Maestro de obra / Residente">
-    </div>
+    <label>Nombre Completo</label>
+    <input type="text" id="recibeNombre" placeholder="Ej: Pedro Martínez">
+    <label>Cédula / Identificación</label>
+    <input type="text" id="recibeCedula" placeholder="Ej: 1144123456">
+    <label>Cargo / Rol en Obra</label>
+    <input type="text" id="recibeCargo" placeholder="Ej: Residente / Maestro">
   </div>
 
   <!-- PASO 3: FIRMA TÁCTIL -->
@@ -281,31 +202,35 @@
 
   <!-- PASO 4: PROCESAR -->
   <div class="card">
-    <button type="button" class="btn btn-primary" onclick="stampAndSavePDF()">
-      ✓ Estampar Firma y Guardar Soporte
+    <button type="button" class="btn btn-primary" onclick="stampAndProcessPDF()">
+      ✓ Firmar y Guardar en Drive
     </button>
   </div>
 
-  <!-- HISTORIAL / COLA PENDIENTE DE ENVÍO -->
+  <!-- HISTORIAL / COLA DE SINCRONIZACIÓN -->
   <div class="card">
-    <div class="card-title">📦 Soportes Guardados / Listos para Enviar</div>
-    <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:10px;">
-      Los PDFs quedan guardados en la memoria del celular. Cuando tengas señal, toca "Compartir" para enviarlo por WhatsApp o correo.
-    </p>
-    <div id="queueList" class="pending-queue">
-      <div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding:10px;">No hay documentos pendientes.</div>
+    <div class="card-title">📦 Soportes Firmados / Sincronización</div>
+    <button class="btn btn-secondary" onclick="syncPendingWithDrive()" style="margin-bottom:10px;">
+      🔄 Sincronizar Pendientes con Google Drive
+    </button>
+    <div id="queueList">
+      <div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding:10px;">No hay documentos pendientes por sincronizar.</div>
     </div>
   </div>
 
   <script>
-    // --- MANEJO DEL CANVAS DE FIRMA ---
+    let SCRIPT_URL = localStorage.getItem('gas_script_url') || '';
+    let currentPdfBytes = null;
+    let currentFileName = '';
+    let currentFileId = '';
+    let currentFolderId = '';
+
+    // --- MANEJO CANVAS FIRMA ---
     const canvas = document.getElementById('signatureCanvas');
     const ctx = canvas.getContext('2d');
     const canvasHint = document.getElementById('canvasHint');
     let isDrawing = false;
     let hasSignature = false;
-    let currentPdfBytes = null;
-    let currentFileName = "";
 
     function resizeCanvas() {
       const rect = canvas.getBoundingClientRect();
@@ -321,17 +246,18 @@
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('DOMContentLoaded', () => {
       resizeCanvas();
-      loadQueue();
+      if (SCRIPT_URL) {
+        document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+        fetchObras();
+      }
+      loadQueueUI();
     });
 
     function getTouchPos(e) {
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
-      };
+      return { x: clientX - rect.left, y: clientY - rect.top };
     }
 
     function startDrawing(e) {
@@ -343,7 +269,6 @@
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
     }
-
     function draw(e) {
       if (!isDrawing) return;
       e.preventDefault();
@@ -351,15 +276,11 @@
       ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
     }
-
-    function stopDrawing() {
-      isDrawing = false;
-    }
+    function stopDrawing() { isDrawing = false; }
 
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mousemove', draw);
     window.addEventListener('mouseup', stopDrawing);
-
     canvas.addEventListener('touchstart', startDrawing, { passive: false });
     canvas.addEventListener('touchmove', draw, { passive: false });
     window.addEventListener('touchend', stopDrawing);
@@ -370,38 +291,103 @@
       canvasHint.style.display = 'block';
     }
 
-    // --- CARGA DEL PDF ---
-    document.getElementById('pdfInput').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (file.type !== 'application/pdf') {
-        alert('Por favor selecciona un archivo PDF válido.');
-        return;
-      }
-      currentFileName = file.name.replace('.pdf', '');
-      document.getElementById('fileInfo').innerHTML = `<strong>Cargado:</strong> ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
-      const arrayBuffer = await file.arrayBuffer();
-      currentPdfBytes = arrayBuffer;
-    });
+    // --- CONEXIÓN GOOGLE APPS SCRIPT ---
+    function saveScriptUrl() {
+      const url = document.getElementById('scriptUrlInput').value.trim();
+      if (!url) return alert('Por favor ingresa la URL de Apps Script');
+      localStorage.setItem('gas_script_url', url);
+      SCRIPT_URL = url;
+      alert('URL guardada. Cargando obras...');
+      fetchObras();
+    }
 
-    // --- ESTAMPADO Y GENERACIÓN DE PDF CON PDF-LIB ---
-    async function stampAndSavePDF() {
-      if (!currentPdfBytes) {
-        alert('Por favor carga primero el PDF de la salida de almacén.');
+    async function fetchObras() {
+      if (!SCRIPT_URL) return;
+      const selectObra = document.getElementById('selectObra');
+      selectObra.innerHTML = '<option>Cargando obras...</option>';
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=getObras`);
+        const data = await res.json();
+        if (data.success) {
+          selectObra.innerHTML = '<option value="">-- Selecciona una obra --</option>';
+          data.obras.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.id;
+            opt.textContent = o.nombre;
+            selectObra.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        selectObra.innerHTML = '<option value="">Error cargando obras (sin conexión)</option>';
+      }
+    }
+
+    async function onObraSelected() {
+      const obraId = document.getElementById('selectObra').value;
+      currentFolderId = obraId;
+      const selectPdf = document.getElementById('selectPdf');
+      const pdfStatus = document.getElementById('pdfStatus');
+      
+      if (!obraId) {
+        selectPdf.innerHTML = '<option value="">-- Selecciona un archivo PDF --</option>';
         return;
       }
+
+      selectPdf.innerHTML = '<option>Buscando PDFs pendientes...</option>';
+      pdfStatus.textContent = 'Consultando carpeta Pendientes en Drive...';
+
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=getPdfs&folderId=${obraId}`);
+        const data = await res.json();
+        if (data.success && data.files.length > 0) {
+          selectPdf.innerHTML = '<option value="">-- Selecciona un archivo PDF --</option>';
+          data.files.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.name;
+            selectPdf.appendChild(opt);
+          });
+          pdfStatus.textContent = `${data.files.length} despacho(s) pendiente(s) encontrado(s).`;
+        } else {
+          selectPdf.innerHTML = '<option value="">No hay PDFs pendientes</option>';
+          pdfStatus.textContent = 'No hay archivos en la carpeta Pendientes de esta obra.';
+        }
+      } catch (err) {
+        pdfStatus.textContent = 'Modo offline: Selecciona un archivo local o conecta a red.';
+      }
+    }
+
+    async function onPdfSelected() {
+      const fileId = document.getElementById('selectPdf').value;
+      if (!fileId) return;
+      currentFileId = fileId;
+      const selectPdf = document.getElementById('selectPdf');
+      currentFileName = selectPdf.options[selectPdf.selectedIndex].text.replace('.pdf', '');
+
+      const pdfStatus = document.getElementById('pdfStatus');
+      pdfStatus.textContent = 'Descargando PDF para firmar...';
+
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=downloadPdf&fileId=${fileId}`);
+        const data = await res.json();
+        if (data.success) {
+          currentPdfBytes = base64ToUint8Array(data.base64);
+          pdfStatus.textContent = `✓ PDF listo para firma: ${currentFileName}.pdf`;
+        }
+      } catch (err) {
+        pdfStatus.textContent = 'Error al descargar PDF. Verifica tu conexión.';
+      }
+    }
+
+    // --- FIRMADO DE PDF ---
+    async function stampAndProcessPDF() {
+      if (!currentPdfBytes) return alert('Por favor selecciona primero un PDF.');
       const nombre = document.getElementById('recibeNombre').value.trim();
       const cedula = document.getElementById('recibeCedula').value.trim();
       const cargo = document.getElementById('recibeCargo').value.trim();
 
-      if (!nombre || !cedula) {
-        alert('Por favor ingresa al menos el Nombre y Cédula de quien recibe.');
-        return;
-      }
-      if (!hasSignature) {
-        alert('Por favor solicita la firma del receptor en la pantalla.');
-        return;
-      }
+      if (!nombre || !cedula) return alert('Ingresa Nombre y Cédula de quien recibe.');
+      if (!hasSignature) return alert('Por favor solicita la firma del receptor.');
 
       try {
         const { PDFDocument, rgb, StandardFonts } = PDFLib;
@@ -409,237 +395,156 @@
         const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
         const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-        // Convertir firma a PNG
         const signatureImagePng = canvas.toDataURL('image/png');
         const signatureImage = await pdfDoc.embedPng(signatureImagePng);
 
-        // Obtenemos la última página del documento
         const pages = pdfDoc.getPages();
         const lastPage = pages[pages.length - 1];
-        const { width, height } = lastPage.getSize();
+        const { width } = lastPage.getSize();
 
-        // Creamos un recuadro de firma profesional en la parte inferior
         const boxWidth = width - 80;
         const boxHeight = 90;
         const boxX = 40;
         const boxY = 40;
 
-        // Fondo del recuadro
         lastPage.drawRectangle({
-          x: boxX,
-          y: boxY,
-          width: boxWidth,
-          height: boxHeight,
-          borderColor: rgb(0.15, 0.23, 0.36),
-          borderWidth: 1,
-          color: rgb(0.98, 0.98, 0.99),
-          opacity: 0.95,
+          x: boxX, y: boxY, width: boxWidth, height: boxHeight,
+          borderColor: rgb(0.15, 0.23, 0.36), borderWidth: 1,
+          color: rgb(0.98, 0.98, 0.99), opacity: 0.95,
         });
 
-        // Título del recuadro
         lastPage.drawText('CONSTANCIA DE RECIBIDO A CONFORMIDAD', {
-          x: boxX + 12,
-          y: boxY + boxHeight - 16,
-          size: 9,
-          font: font,
-          color: rgb(0.06, 0.09, 0.16),
+          x: boxX + 12, y: boxY + boxHeight - 16, size: 9, font: font, color: rgb(0.06, 0.09, 0.16),
         });
 
         const now = new Date();
         const fechaStr = now.toLocaleDateString('es-CO') + ' ' + now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
-        // Textos del receptor
-        lastPage.drawText(`Recibido por: ${nombre}`, {
-          x: boxX + 12,
-          y: boxY + boxHeight - 32,
-          size: 8.5,
-          font: fontRegular,
-          color: rgb(0.1, 0.1, 0.1),
-        });
+        lastPage.drawText(`Recibido por: ${nombre}`, { x: boxX + 12, y: boxY + boxHeight - 32, size: 8.5, font: fontRegular });
+        lastPage.drawText(`C.C. / ID: ${cedula}   |   Cargo: ${cargo || 'N/A'}`, { x: boxX + 12, y: boxY + boxHeight - 46, size: 8.5, font: fontRegular });
+        lastPage.drawText(`Fecha y Hora: ${fechaStr}`, { x: boxX + 12, y: boxY + boxHeight - 60, size: 8, font: fontRegular });
 
-        lastPage.drawText(`C.C. / ID: ${cedula}   |   Cargo: ${cargo || 'N/A'}`, {
-          x: boxX + 12,
-          y: boxY + boxHeight - 46,
-          size: 8.5,
-          font: fontRegular,
-          color: rgb(0.1, 0.1, 0.1),
-        });
-
-        lastPage.drawText(`Fecha y Hora: ${fechaStr}`, {
-          x: boxX + 12,
-          y: boxY + boxHeight - 60,
-          size: 8,
-          font: fontRegular,
-          color: rgb(0.4, 0.4, 0.4),
-        });
-
-        // Estampar la firma a la derecha del recuadro
         const sigWidth = 140;
         const sigHeight = 55;
         const sigX = boxX + boxWidth - sigWidth - 15;
         const sigY = boxY + 12;
 
-        lastPage.drawImage(signatureImage, {
-          x: sigX,
-          y: sigY,
-          width: sigWidth,
-          height: sigHeight,
-        });
-
-        // Línea sobre la firma
-        lastPage.drawLine({
-          start: { x: sigX, y: sigY + 8 },
-          end: { x: sigX + sigWidth, y: sigY + 8 },
-          thickness: 0.8,
-          color: rgb(0.5, 0.5, 0.5),
-        });
-
-        lastPage.drawText('Firma del Receptor', {
-          x: sigX + 25,
-          y: sigY - 2,
-          size: 7.5,
-          font: fontRegular,
-          color: rgb(0.4, 0.4, 0.4),
-        });
+        lastPage.drawImage(signatureImage, { x: sigX, y: sigY, width: sigWidth, height: sigHeight });
+        lastPage.drawLine({ start: { x: sigX, y: sigY + 8 }, end: { x: sigX + sigWidth, y: sigY + 8 }, thickness: 0.8 });
+        lastPage.drawText('Firma del Receptor', { x: sigX + 25, y: sigY - 2, size: 7.5, font: fontRegular });
 
         const signedPdfBytes = await pdfDoc.save();
-
-        // Convertir a Base64 para almacenamiento en IndexedDB / localStorage
         const base64Pdf = uint8ArrayToBase64(signedPdfBytes);
         const signedFileName = `${currentFileName}_FIRMADO_${cedula}.pdf`;
 
-        // Guardar en cola local
-        saveToLocalQueue({
+        const itemData = {
           id: Date.now(),
+          folderId: currentFolderId,
+          originalFileId: currentFileId,
           fileName: signedFileName,
           nombre: nombre,
           cedula: cedula,
           fecha: fechaStr,
-          data: base64Pdf
-        });
+          base64: base64Pdf,
+          synced: false
+        };
 
-        alert('¡Documento firmado con éxito! Se guardó en la lista de pendientes para compartir.');
-        
-        // Limpiar formulario para la siguiente salida
+        // Guardar en cola local
+        saveToQueue(itemData);
+        alert('✓ Despacho firmado. Intentando subir a Google Drive...');
+
+        // Intentar subir de inmediato
+        await uploadToDrive(itemData);
+
+        // Limpiar
         clearSignature();
         document.getElementById('recibeNombre').value = '';
         document.getElementById('recibeCedula').value = '';
         document.getElementById('recibeCargo').value = '';
-        document.getElementById('fileInfo').innerHTML = 'Ningún archivo cargado aún.';
-        currentPdfBytes = null;
-        document.getElementById('pdfInput').value = '';
-
-        loadQueue();
+        onObraSelected();
       } catch (err) {
-        console.error(err);
-        alert('Error al firmar el PDF: ' + err.message);
+        alert('Error al procesar el PDF: ' + err.message);
       }
     }
 
-    // --- CONVERSIÓN BINARIA ---
-    function uint8ArrayToBase64(buffer) {
-      let binary = '';
-      const bytes = new Uint8Array(buffer);
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
+    // --- SINCRONIZACIÓN DRIVE ---
+    async function uploadToDrive(item) {
+      if (!SCRIPT_URL) return;
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' }, // CORS friendly con GAS
+          body: JSON.stringify({
+            folderId: item.folderId,
+            originalFileId: item.originalFileId,
+            fileName: item.fileName,
+            base64: item.base64
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          markAsSynced(item.id);
+          alert(`✓ Archivo subido con éxito a la carpeta 'Firmados' en Google Drive.`);
+        }
+      } catch (err) {
+        console.log('Sin internet. Se mantendrá en cola para subir después.');
       }
-      return window.btoa(binary);
+      loadQueueUI();
     }
 
-    function base64ToBlob(base64, type = 'application/pdf') {
-      const binStr = window.atob(base64);
-      const len = binStr.length;
-      const arr = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        arr[i] = binStr.charCodeAt(i);
+    async function syncPendingWithDrive() {
+      const q = getQueue().filter(i => !i.synced);
+      if (q.length === 0) return alert('No hay documentos pendientes por subir.');
+      for (const item of q) {
+        await uploadToDrive(item);
       }
-      return new Blob([arr], { type: type });
     }
 
-    // --- GESTIÓN DE COLA LOCAL (ALMACENAMIENTO OFFLINE) ---
-    function getQueue() {
-      const q = localStorage.getItem('firmas_almacen_cola');
-      return q ? JSON.parse(q) : [];
+    // --- HELPERS LOCALES ---
+    function uint8ArrayToBase64(buf) {
+      let bin = '';
+      const b = new Uint8Array(buf);
+      for (let i = 0; i < b.byteLength; i++) bin += String.fromCharCode(b[i]);
+      return window.btoa(bin);
     }
-
-    function saveToLocalQueue(item) {
+    function base64ToUint8Array(base64) {
+      const bin = window.atob(base64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return arr;
+    }
+    function getQueue() { return JSON.parse(localStorage.getItem('almacen_cola') || '[]'); }
+    function saveToQueue(item) {
       const q = getQueue();
       q.unshift(item);
-      localStorage.setItem('firmas_almacen_cola', JSON.stringify(q));
+      localStorage.setItem('almacen_cola', JSON.stringify(q));
     }
-
-    function deleteQueueItem(id) {
-      let q = getQueue();
-      q = q.filter(i => i.id !== id);
-      localStorage.setItem('firmas_almacen_cola', JSON.stringify(q));
-      loadQueue();
+    function markAsSynced(id) {
+      const q = getQueue().map(i => i.id === id ? { ...i, synced: true } : i);
+      localStorage.setItem('almacen_cola', JSON.stringify(q));
     }
-
-    function loadQueue() {
-      const queueList = document.getElementById('queueList');
+    function loadQueueUI() {
+      const list = document.getElementById('queueList');
       const q = getQueue();
-      if (q.length === 0) {
-        queueList.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding:10px;">No hay documentos pendientes.</div>';
+      if (!q.length) {
+        list.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding:10px;">No hay documentos pendientes.</div>';
         return;
       }
-
-      queueList.innerHTML = '';
-      q.forEach(item => {
+      list.innerHTML = '';
+      q.forEach(i => {
         const div = document.createElement('div');
         div.className = 'queue-item';
         div.innerHTML = `
-          <div class="queue-info">
-            <div class="queue-name">${item.fileName}</div>
-            <div class="queue-date">Recibió: ${item.nombre} (CC: ${item.cedula}) • ${item.fecha}</div>
+          <div>
+            <div class="queue-name">${i.fileName}</div>
+            <div class="queue-date">${i.fecha} • ${i.synced ? '🟢 En Drive' : '🟡 Pendiente de señal'}</div>
           </div>
-          <div class="queue-actions">
-            <button class="btn-mini btn-share" onclick="shareOrDownload(${item.id})">Enviar / Descargar</button>
-            <button class="btn-mini btn-del" onclick="deleteQueueItem(${item.id})">✕</button>
+          <div>
+            ${!i.synced ? `<button class="btn-mini" onclick="uploadToDrive(getQueue().find(x=>x.id===${i.id}))">Subir</button>` : ''}
           </div>
         `;
-        queueList.appendChild(div);
+        list.appendChild(div);
       });
-    }
-
-    // --- COMPARTIR POR WHATSAPP/CORREO (WEB SHARE API O DESCARGA) ---
-    async function shareOrDownload(id) {
-      const q = getQueue();
-      const item = q.find(i => i.id === id);
-      if (!item) return;
-
-      const blob = base64ToBlob(item.data);
-      const file = new File([blob], item.fileName, { type: 'application/pdf' });
-
-      // Si el navegador soporta compartir archivos nativamente (Android Chrome / iOS Safari)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            title: item.fileName,
-            text: `Adjunto soporte de salida firmado por ${item.nombre} (CC: ${item.cedula})`,
-            files: [file]
-          });
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            downloadFile(blob, item.fileName);
-          }
-        }
-      } else {
-        // Si no soporta share nativo de archivo, se descarga al celular
-        downloadFile(blob, item.fileName);
-        alert('Archivo descargado en tu dispositivo. Puedes adjuntarlo en WhatsApp o Correo.');
-      }
-    }
-
-    function downloadFile(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     }
   </script>
 </body>
