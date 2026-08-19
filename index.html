@@ -4,8 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Firmador de Salidas de Almacén</title>
-  <!-- Librería para modificar PDFs en el cliente sin servidor -->
+  <!-- Librería para modificar PDFs -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <!-- Librería PDF.js para renderizar páginas de PDF en Canvas en celulares (100% compatible iOS/Android) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
   <style>
     :root {
       --primary: #0f172a;
@@ -82,6 +87,44 @@
       color: var(--text-muted);
       text-transform: uppercase;
     }
+    /* Estilos del Visor de PDF integrado */
+    .pdf-viewer-container {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #475569;
+      padding: 8px;
+      max-height: 420px;
+      overflow-y: auto;
+      overflow-x: auto;
+      text-align: center;
+      display: none;
+    }
+    #pdfRenderCanvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      background: white;
+      margin: 0 auto;
+    }
+    .pdf-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .btn-nav {
+      background: #334155;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
     .canvas-container {
       border: 2px dashed #94a3b8;
       border-radius: 8px;
@@ -90,7 +133,7 @@
       position: relative;
       overflow: hidden;
     }
-    canvas { display: block; width: 100%; height: 180px; }
+    #signatureCanvas { display: block; width: 100%; height: 180px; }
     .canvas-hint {
       position: absolute;
       top: 50%;
@@ -152,27 +195,24 @@
 
   <div class="header">
     <h1>Salidas de Almacén • Firma Digital</h1>
-    <p>Ingeniero ➔ Obra ➔ Firma ➔ Drive</p>
+    <p>Ingeniero ➔ Obra ➔ Vista Previa ➔ Firma</p>
   </div>
 
   <!-- PASO 1: SELECCIONAR INGENIERO, OBRA Y PDF -->
   <div class="card">
     <div class="card-title"><span class="step-num">1</span> Seleccionar Despacho</div>
     
-    <!-- NIVEL 1: INGENIERO -->
     <label>1. Ingeniero Responsable</label>
     <select id="selectIngeniero" onchange="onIngenieroSelected()">
       <option value="">-- Selecciona un Ingeniero --</option>
     </select>
     <button class="btn btn-secondary" onclick="fetchIngenieros()" style="margin-bottom: 12px;">🔄 Actualizar Lista</button>
 
-    <!-- NIVEL 2: OBRA -->
     <label>2. Obra / Proyecto</label>
     <select id="selectObra" onchange="onObraSelected()">
       <option value="">-- Primero selecciona un ingeniero --</option>
     </select>
 
-    <!-- NIVEL 3: PDF PENDIENTE -->
     <label>3. Salida de Almacén (PDF Pendiente)</label>
     <select id="selectPdf" onchange="onPdfSelected()">
       <option value="">-- Selecciona una obra primero --</option>
@@ -180,9 +220,22 @@
     <div id="pdfStatus" class="status-msg">Selecciona un ingeniero y obra para ver los PDFs pendientes.</div>
   </div>
 
-  <!-- PASO 2: DATOS DEL RECEPTOR -->
+  <!-- PASO 2: VISTA PREVIA DEL PDF -->
+  <div class="card" id="previewCard" style="display: none;">
+    <div class="card-title"><span class="step-num">2</span> Vista Previa del Despacho</div>
+    <div class="pdf-viewer-container" id="pdfViewer">
+      <canvas id="pdfRenderCanvas"></canvas>
+      <div class="pdf-nav">
+        <button type="button" class="btn-nav" onclick="prevPdfPage()">◀ Anterior</button>
+        <span id="pageInfo">Página 1 / 1</span>
+        <button type="button" class="btn-nav" onclick="nextPdfPage()">Siguiente ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 3: DATOS DEL RECEPTOR -->
   <div class="card">
-    <div class="card-title"><span class="step-num">2</span> Datos de Quien Recibe en Obra</div>
+    <div class="card-title"><span class="step-num">3</span> Datos de Quien Recibe en Obra</div>
     <label>Nombre Completo</label>
     <input type="text" id="recibeNombre" placeholder="Ej: Pedro Martínez">
     <label>Cédula / Identificación</label>
@@ -191,9 +244,9 @@
     <input type="text" id="recibeCargo" placeholder="Ej: Residente / Maestro de obra">
   </div>
 
-  <!-- PASO 3: FIRMA TÁCTIL -->
+  <!-- PASO 4: FIRMA TÁCTIL -->
   <div class="card">
-    <div class="card-title"><span class="step-num">3</span> Firma en Pantalla</div>
+    <div class="card-title"><span class="step-num">4</span> Firma en Pantalla</div>
     <div class="canvas-container">
       <div id="canvasHint" class="canvas-hint">Firme aquí</div>
       <canvas id="signatureCanvas"></canvas>
@@ -201,7 +254,7 @@
     <button type="button" class="btn btn-secondary" onclick="clearSignature()">Borrar Firma</button>
   </div>
 
-  <!-- PASO 4: PROCESAR -->
+  <!-- PASO 5: PROCESAR -->
   <div class="card">
     <button type="button" class="btn btn-primary" onclick="stampAndProcessPDF()">
       ✓ Firmar y Guardar en Drive
@@ -229,6 +282,11 @@
     let currentFileName = '';
     let currentFileId = '';
     let currentObraId = '';
+
+    // Variables PDF.js para Vista Previa
+    let pdfDocInstance = null;
+    let currentPdfPage = 1;
+    let totalPdfPages = 0;
 
     // --- MANEJO CANVAS FIRMA ---
     const canvas = document.getElementById('signatureCanvas');
@@ -324,6 +382,7 @@
       const selectObra = document.getElementById('selectObra');
       const selectPdf = document.getElementById('selectPdf');
       const pdfStatus = document.getElementById('pdfStatus');
+      hidePdfPreview();
 
       selectPdf.innerHTML = '<option value="">-- Selecciona una obra primero --</option>';
       pdfStatus.textContent = 'Selecciona una obra para ver los despachos pendientes.';
@@ -360,6 +419,7 @@
       currentObraId = obraId;
       const selectPdf = document.getElementById('selectPdf');
       const pdfStatus = document.getElementById('pdfStatus');
+      hidePdfPreview();
 
       if (!obraId) {
         selectPdf.innerHTML = '<option value="">-- Selecciona una obra primero --</option>';
@@ -390,27 +450,92 @@
       }
     }
 
-    // 4. Descargar PDF seleccionado
+    // 4. Descargar PDF seleccionado y Renderizar Vista Previa
     async function onPdfSelected() {
       const fileId = document.getElementById('selectPdf').value;
-      if (!fileId) return;
+      if (!fileId) {
+        hidePdfPreview();
+        return;
+      }
       currentFileId = fileId;
       const selectPdf = document.getElementById('selectPdf');
       currentFileName = selectPdf.options[selectPdf.selectedIndex].text.replace('.pdf', '');
 
       const pdfStatus = document.getElementById('pdfStatus');
-      pdfStatus.textContent = 'Descargando PDF para firmar...';
+      pdfStatus.textContent = 'Descargando y preparando vista previa...';
 
       try {
         const res = await fetch(`${SCRIPT_URL}?action=downloadPdf&fileId=${fileId}`);
         const data = await res.json();
         if (data.success) {
           currentPdfBytes = base64ToUint8Array(data.base64);
-          pdfStatus.textContent = `✓ PDF listo para firma: ${currentFileName}.pdf`;
+          pdfStatus.textContent = `✓ PDF cargado: ${currentFileName}.pdf`;
+          
+          // Renderizar con PDF.js en el Canvas
+          await renderPdfDocument(currentPdfBytes);
         }
       } catch (err) {
         pdfStatus.textContent = 'Error al descargar el PDF.';
       }
+    }
+
+    // --- RENDERIZADO VISOR DE PDF (PDF.JS) ---
+    async function renderPdfDocument(pdfData) {
+      try {
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+        pdfDocInstance = await loadingTask.promise;
+        totalPdfPages = pdfDocInstance.numPages;
+        currentPdfPage = 1;
+
+        document.getElementById('previewCard').style.display = 'block';
+        document.getElementById('pdfViewer').style.display = 'block';
+
+        renderCurrentPage();
+      } catch (err) {
+        console.error("Error al visualizar PDF:", err);
+      }
+    }
+
+    async function renderCurrentPage() {
+      if (!pdfDocInstance) return;
+      const page = await pdfDocInstance.getPage(currentPdfPage);
+      const renderCanvas = document.getElementById('pdfRenderCanvas');
+      const renderCtx = renderCanvas.getContext('2d');
+
+      // Escala ajustada para nitidez en pantallas de celular (Retina / alta densidad)
+      const containerWidth = document.getElementById('pdfViewer').clientWidth - 20;
+      const unscaledViewport = page.getViewport({ scale: 1 });
+      const scale = (containerWidth / unscaledViewport.width) * 1.5;
+      const viewport = page.getViewport({ scale: Math.max(scale, 1.2) });
+
+      renderCanvas.height = viewport.height;
+      renderCanvas.width = viewport.width;
+
+      const renderContext = {
+        canvasContext: renderCtx,
+        viewport: viewport
+      };
+      await page.render(renderContext).promise;
+
+      document.getElementById('pageInfo').textContent = `Página ${currentPdfPage} / ${totalPdfPages}`;
+    }
+
+    function prevPdfPage() {
+      if (currentPdfPage <= 1) return;
+      currentPdfPage--;
+      renderCurrentPage();
+    }
+
+    function nextPdfPage() {
+      if (currentPdfPage >= totalPdfPages) return;
+      currentPdfPage++;
+      renderCurrentPage();
+    }
+
+    function hidePdfPreview() {
+      document.getElementById('previewCard').style.display = 'none';
+      document.getElementById('pdfViewer').style.display = 'none';
+      pdfDocInstance = null;
     }
 
     // --- FIRMADO DE PDF ---
@@ -493,6 +618,7 @@
         document.getElementById('recibeNombre').value = '';
         document.getElementById('recibeCedula').value = '';
         document.getElementById('recibeCargo').value = '';
+        hidePdfPreview();
         onObraSelected();
       } catch (err) {
         alert('Error al procesar el PDF: ' + err.message);
