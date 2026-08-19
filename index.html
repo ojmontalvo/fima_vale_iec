@@ -155,14 +155,6 @@
     <p>Ingeniero ➔ Obra ➔ Firma ➔ Drive</p>
   </div>
 
-  <!-- CONFIGURACIÓN API GOOGLE APPS SCRIPT -->
-  <div class="card" id="configSection">
-    <div class="card-title">⚙️ Conexión con Google Apps Script</div>
-    <label>URL de la Web App de Apps Script</label>
-    <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
-    <button class="btn btn-secondary" onclick="saveScriptUrl()">Guardar Conexión</button>
-  </div>
-
   <!-- PASO 1: SELECCIONAR INGENIERO, OBRA Y PDF -->
   <div class="card">
     <div class="card-title"><span class="step-num">1</span> Seleccionar Despacho</div>
@@ -172,7 +164,7 @@
     <select id="selectIngeniero" onchange="onIngenieroSelected()">
       <option value="">-- Selecciona un Ingeniero --</option>
     </select>
-    <button class="btn btn-secondary" onclick="fetchIngenieros()" style="margin-bottom: 12px;">🔄 Actualizar Lista de Ingenieros</button>
+    <button class="btn btn-secondary" onclick="fetchIngenieros()" style="margin-bottom: 12px;">🔄 Actualizar Lista</button>
 
     <!-- NIVEL 2: OBRA -->
     <label>2. Obra / Proyecto</label>
@@ -228,7 +220,11 @@
   </div>
 
   <script>
-    let SCRIPT_URL = localStorage.getItem('gas_script_url') || '';
+    // =========================================================================
+    // PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT DIRECTAMENTE ENTRE LAS COMILLAS:
+    // =========================================================================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2rEhbpT8ixlotyOBTx2RHY8vaybK9qtmHh_lxbr1yAxpu3eClOkyDOoPwbia8BuV4hQ/exec";
+
     let currentPdfBytes = null;
     let currentFileName = '';
     let currentFileId = '';
@@ -255,9 +251,10 @@
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('DOMContentLoaded', () => {
       resizeCanvas();
-      if (SCRIPT_URL) {
-        document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+      if (SCRIPT_URL && SCRIPT_URL !== "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT") {
         fetchIngenieros();
+      } else {
+        alert("Atención: Debes colocar tu URL de Apps Script en la variable SCRIPT_URL dentro del archivo index.html");
       }
       loadQueueUI();
     });
@@ -300,19 +297,8 @@
       canvasHint.style.display = 'block';
     }
 
-    // --- CONEXIÓN APPS SCRIPT ---
-    function saveScriptUrl() {
-      const url = document.getElementById('scriptUrlInput').value.trim();
-      if (!url) return alert('Ingresa la URL de Apps Script');
-      localStorage.setItem('gas_script_url', url);
-      SCRIPT_URL = url;
-      alert('URL guardada. Cargando ingenieros...');
-      fetchIngenieros();
-    }
-
     // 1. Cargar Ingenieros (Nivel 1)
     async function fetchIngenieros() {
-      if (!SCRIPT_URL) return;
       const selectIng = document.getElementById('selectIngeniero');
       selectIng.innerHTML = '<option>Cargando ingenieros...</option>';
       try {
