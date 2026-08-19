@@ -6,7 +6,7 @@
   <title>Firmador de Salidas de Almacén</title>
   <!-- Librería para modificar PDFs -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-  <!-- Librería PDF.js para renderizar páginas de PDF en Canvas en celulares (100% compatible iOS/Android) -->
+  <!-- Librería PDF.js para renderizar páginas de PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -87,7 +87,6 @@
       color: var(--text-muted);
       text-transform: uppercase;
     }
-    /* Estilos del Visor de PDF integrado */
     .pdf-viewer-container {
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -462,20 +461,23 @@
       currentFileName = selectPdf.options[selectPdf.selectedIndex].text.replace('.pdf', '');
 
       const pdfStatus = document.getElementById('pdfStatus');
-      pdfStatus.textContent = 'Descargando y preparando vista previa...';
+      pdfStatus.textContent = 'Descargando documento...';
 
       try {
         const res = await fetch(`${SCRIPT_URL}?action=downloadPdf&fileId=${fileId}`);
         const data = await res.json();
-        if (data.success) {
+        if (data.success && data.base64) {
+          // Conversión segura de Base64 a Uint8Array
           currentPdfBytes = base64ToUint8Array(data.base64);
           pdfStatus.textContent = `✓ PDF cargado: ${currentFileName}.pdf`;
           
           // Renderizar con PDF.js en el Canvas
-          await renderPdfDocument(currentPdfBytes);
+          await renderPdfDocument(currentPdfBytes.slice(0)); // Pasar una copia limpia
+        } else {
+          pdfStatus.textContent = 'Error: no se recibieron datos válidos del PDF.';
         }
       } catch (err) {
-        pdfStatus.textContent = 'Error al descargar el PDF.';
+        pdfStatus.textContent = 'Error al descargar el PDF: ' + err.message;
       }
     }
 
@@ -502,7 +504,6 @@
       const renderCanvas = document.getElementById('pdfRenderCanvas');
       const renderCtx = renderCanvas.getContext('2d');
 
-      // Escala ajustada para nitidez en pantallas de celular (Retina / alta densidad)
       const containerWidth = document.getElementById('pdfViewer').clientWidth - 20;
       const unscaledViewport = page.getViewport({ scale: 1 });
       const scale = (containerWidth / unscaledViewport.width) * 1.5;
@@ -550,7 +551,8 @@
 
       try {
         const { PDFDocument, rgb, StandardFonts } = PDFLib;
-        const pdfDoc = await PDFDocument.load(currentPdfBytes);
+        // Usar slice para asegurar un buffer fresco e inmutable
+        const pdfDoc = await PDFDocument.load(currentPdfBytes.slice(0));
         const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
         const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
@@ -658,19 +660,29 @@
       }
     }
 
-    // --- HELPERS ---
+    // --- HELPERS (DECODIFICACIÓN BINARIA SEGURA) ---
+    function base64ToUint8Array(base64) {
+      // Limpia posibles saltos de línea o espacios en blanco
+      const cleanBase64 = base64.replace(/\s/g, '');
+      const binaryString = window.atob(cleanBase64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    }
+
     function uint8ArrayToBase64(buf) {
       let bin = '';
       const b = new Uint8Array(buf);
-      for (let i = 0; i < b.byteLength; i++) bin += String.fromCharCode(b[i]);
+      const len = b.byteLength;
+      for (let i = 0; i < len; i++) {
+        bin += String.fromCharCode(b[i]);
+      }
       return window.btoa(bin);
     }
-    function base64ToUint8Array(base64) {
-      const bin = window.atob(base64);
-      const arr = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      return arr;
-    }
+
     function getQueue() { return JSON.parse(localStorage.getItem('almacen_cola') || '[]'); }
     function saveToQueue(item) {
       const q = getQueue();
