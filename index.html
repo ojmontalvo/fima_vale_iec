@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Firmador de Salidas de Almacén</title>
-  <!-- Librería para modificar PDFs -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-  <!-- Librería PDF.js para renderizar páginas de PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -273,9 +271,10 @@
 
   <script>
     // =========================================================================
-    // PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT DIRECTAMENTE ENTRE LAS COMILLAS:
+    // CONFIGURACIÓN DE SEGURIDAD (TOKEN + URL)
     // =========================================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2rEhbpT8ixlotyOBTx2RHY8vaybK9qtmHh_lxbr1yAxpu3eClOkyDOoPwbia8BuV4hQ/exec";
+    const API_SECRET = "IEC_Obra_Segura_2026"; // Debe coincidir exactamente con el de Google Apps Script
 
     let currentPdfBytes = null;
     let currentFileName = '';
@@ -311,7 +310,7 @@
       if (SCRIPT_URL && SCRIPT_URL !== "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT") {
         fetchIngenieros();
       } else {
-        alert("Atención: Debes colocar tu URL de Apps Script en la variable SCRIPT_URL dentro del archivo index.html");
+        alert("Atención: Coloca tu URL de Apps Script en SCRIPT_URL dentro del index.html");
       }
       loadQueueUI();
     });
@@ -354,12 +353,12 @@
       canvasHint.style.display = 'block';
     }
 
-    // 1. Cargar Ingenieros (Nivel 1)
+    // 1. Cargar Ingenieros (Nivel 1 con Token)
     async function fetchIngenieros() {
       const selectIng = document.getElementById('selectIngeniero');
       selectIng.innerHTML = '<option>Cargando ingenieros...</option>';
       try {
-        const res = await fetch(`${SCRIPT_URL}?action=getIngenieros`);
+        const res = await fetch(`${SCRIPT_URL}?action=getIngenieros&key=${encodeURIComponent(API_SECRET)}`);
         const data = await res.json();
         if (data.success) {
           selectIng.innerHTML = '<option value="">-- Selecciona un Ingeniero --</option>';
@@ -369,13 +368,15 @@
             opt.textContent = ing.nombre;
             selectIng.appendChild(opt);
           });
+        } else {
+          selectIng.innerHTML = `<option value="">Error: ${data.error || 'No autorizado'}</option>`;
         }
       } catch (err) {
         selectIng.innerHTML = '<option value="">Error cargando ingenieros (revisa conexión)</option>';
       }
     }
 
-    // 2. Al seleccionar Ingeniero -> Cargar sus Obras (Nivel 2)
+    // 2. Al seleccionar Ingeniero -> Cargar sus Obras (Nivel 2 con Token)
     async function onIngenieroSelected() {
       const ingId = document.getElementById('selectIngeniero').value;
       const selectObra = document.getElementById('selectObra');
@@ -394,7 +395,7 @@
       selectObra.innerHTML = '<option>Cargando obras del ingeniero...</option>';
 
       try {
-        const res = await fetch(`${SCRIPT_URL}?action=getObras&ingenieroId=${ingId}`);
+        const res = await fetch(`${SCRIPT_URL}?action=getObras&ingenieroId=${ingId}&key=${encodeURIComponent(API_SECRET)}`);
         const data = await res.json();
         if (data.success && data.obras.length > 0) {
           selectObra.innerHTML = '<option value="">-- Selecciona una Obra --</option>';
@@ -412,7 +413,7 @@
       }
     }
 
-    // 3. Al seleccionar Obra -> Cargar PDFs pendientes (Nivel 3)
+    // 3. Al seleccionar Obra -> Cargar PDFs pendientes (Nivel 3 con Token)
     async function onObraSelected() {
       const obraId = document.getElementById('selectObra').value;
       currentObraId = obraId;
@@ -429,7 +430,7 @@
       pdfStatus.textContent = 'Buscando en la carpeta Pendientes...';
 
       try {
-        const res = await fetch(`${SCRIPT_URL}?action=getPdfs&obraId=${obraId}`);
+        const res = await fetch(`${SCRIPT_URL}?action=getPdfs&obraId=${obraId}&key=${encodeURIComponent(API_SECRET)}`);
         const data = await res.json();
         if (data.success && data.files.length > 0) {
           selectPdf.innerHTML = '<option value="">-- Selecciona un archivo PDF --</option>';
@@ -449,7 +450,7 @@
       }
     }
 
-    // 4. Descargar PDF seleccionado y Renderizar Vista Previa
+    // 4. Descargar PDF seleccionado con Token
     async function onPdfSelected() {
       const fileId = document.getElementById('selectPdf').value;
       if (!fileId) {
@@ -464,15 +465,12 @@
       pdfStatus.textContent = 'Descargando documento...';
 
       try {
-        const res = await fetch(`${SCRIPT_URL}?action=downloadPdf&fileId=${fileId}`);
+        const res = await fetch(`${SCRIPT_URL}?action=downloadPdf&fileId=${fileId}&key=${encodeURIComponent(API_SECRET)}`);
         const data = await res.json();
         if (data.success && data.base64) {
-          // Conversión segura de Base64 a Uint8Array
           currentPdfBytes = base64ToUint8Array(data.base64);
           pdfStatus.textContent = `✓ PDF cargado: ${currentFileName}.pdf`;
-          
-          // Renderizar con PDF.js en el Canvas
-          await renderPdfDocument(currentPdfBytes.slice(0)); // Pasar una copia limpia
+          await renderPdfDocument(currentPdfBytes.slice(0));
         } else {
           pdfStatus.textContent = 'Error: no se recibieron datos válidos del PDF.';
         }
@@ -551,7 +549,6 @@
 
       try {
         const { PDFDocument, rgb, StandardFonts } = PDFLib;
-        // Usar slice para asegurar un buffer fresco e inmutable
         const pdfDoc = await PDFDocument.load(currentPdfBytes.slice(0));
         const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
         const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -627,7 +624,7 @@
       }
     }
 
-    // --- SINCRONIZACIÓN CON DRIVE ---
+    // --- SINCRONIZACIÓN CON DRIVE CON TOKEN ---
     async function uploadToDrive(item) {
       if (!SCRIPT_URL) return;
       try {
@@ -635,6 +632,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
+            key: API_SECRET, // Envío del Token de seguridad
             obraId: item.obraId,
             originalFileId: item.originalFileId,
             fileName: item.fileName,
@@ -645,6 +643,8 @@
         if (data.success) {
           markAsSynced(item.id);
           alert(`✓ Archivo subido con éxito a la carpeta 'Firmados' en Google Drive.`);
+        } else {
+          alert('Error de autenticación: ' + data.error);
         }
       } catch (err) {
         console.log('Sin señal. Queda pendiente para sincronizar luego.');
@@ -662,7 +662,6 @@
 
     // --- HELPERS (DECODIFICACIÓN BINARIA SEGURA) ---
     function base64ToUint8Array(base64) {
-      // Limpia posibles saltos de línea o espacios en blanco
       const cleanBase64 = base64.replace(/\s/g, '');
       const binaryString = window.atob(cleanBase64);
       const len = binaryString.length;
