@@ -85,43 +85,70 @@
       color: var(--text-muted);
       text-transform: uppercase;
     }
+    
+    /* Visor de PDF con Zoom y Scroll fluido */
     .pdf-viewer-container {
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: #475569;
-      padding: 8px;
-      max-height: 420px;
-      overflow-y: auto;
-      overflow-x: auto;
+      background: #334155;
+      padding: 10px;
+      max-height: 480px;
+      overflow: auto;
       text-align: center;
       display: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .pdf-canvas-wrapper {
+      display: inline-block;
+      min-width: 100%;
     }
     #pdfRenderCanvas {
-      max-width: 100%;
-      height: auto;
-      border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-      background: white;
+      display: block;
       margin: 0 auto;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      background: white;
     }
-    .pdf-nav {
+    .pdf-toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 8px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      background: #1e293b;
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin-bottom: 8px;
       color: #fff;
+      font-size: 0.8rem;
     }
-    .btn-nav {
-      background: #334155;
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-tool {
+      background: #475569;
       color: white;
       border: none;
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
+    .btn-tool:active {
+      background: #64748b;
+    }
+    .zoom-level {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #94a3b8;
+      min-width: 42px;
+      text-align: center;
+    }
+
     .canvas-container {
       border: 2px dashed #94a3b8;
       border-radius: 8px;
@@ -192,7 +219,7 @@
 
   <div class="header">
     <h1>Salidas de Almacén • Firma Digital</h1>
-    <p>Ingeniero ➔ Obra ➔ Vista Previa ➔ Firma</p>
+    <p>Ingeniero ➔ Obra ➔ Vista Previa con Zoom ➔ Firma</p>
   </div>
 
   <!-- PASO 1: SELECCIONAR INGENIERO, OBRA Y PDF -->
@@ -217,15 +244,29 @@
     <div id="pdfStatus" class="status-msg">Selecciona un ingeniero y obra para ver los PDFs pendientes.</div>
   </div>
 
-  <!-- PASO 2: VISTA PREVIA DEL PDF -->
+  <!-- PASO 2: VISTA PREVIA DEL PDF CON ZOOM -->
   <div class="card" id="previewCard" style="display: none;">
     <div class="card-title"><span class="step-num">2</span> Vista Previa del Despacho</div>
+    
+    <!-- Barra de Herramientas de Zoom y Páginas -->
+    <div class="pdf-toolbar">
+      <div class="toolbar-group">
+        <button type="button" class="btn-tool" onclick="prevPdfPage()">◀</button>
+        <span id="pageInfo" style="font-size:0.75rem; font-weight:600;">1 / 1</span>
+        <button type="button" class="btn-tool" onclick="nextPdfPage()">▶</button>
+      </div>
+      <div class="toolbar-group">
+        <button type="button" class="btn-tool" onclick="zoomPdf(-0.25)" title="Reducir">🔍 −</button>
+        <span id="zoomLevel" class="zoom-level">100%</span>
+        <button type="button" class="btn-tool" onclick="zoomPdf(0.25)" title="Aumentar">🔍 +</button>
+        <button type="button" class="btn-tool" onclick="resetZoom()" title="Ajustar">⛶</button>
+      </div>
+    </div>
+
+    <!-- Contenedor scrollable -->
     <div class="pdf-viewer-container" id="pdfViewer">
-      <canvas id="pdfRenderCanvas"></canvas>
-      <div class="pdf-nav">
-        <button type="button" class="btn-nav" onclick="prevPdfPage()">◀ Anterior</button>
-        <span id="pageInfo">Página 1 / 1</span>
-        <button type="button" class="btn-nav" onclick="nextPdfPage()">Siguiente ▶</button>
+      <div class="pdf-canvas-wrapper">
+        <canvas id="pdfRenderCanvas"></canvas>
       </div>
     </div>
   </div>
@@ -274,17 +315,19 @@
     // CONFIGURACIÓN DE SEGURIDAD (TOKEN + URL)
     // =========================================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2rEhbpT8ixlotyOBTx2RHY8vaybK9qtmHh_lxbr1yAxpu3eClOkyDOoPwbia8BuV4hQ/exec";
-    const API_SECRET = "IEC_Obra_Segura_2026"; // Debe coincidir exactamente con el de Google Apps Script
+    const API_SECRET = "IEC_Obra_Segura_2026";
 
     let currentPdfBytes = null;
     let currentFileName = '';
     let currentFileId = '';
     let currentObraId = '';
 
-    // Variables PDF.js para Vista Previa
+    // Variables PDF.js para Vista Previa y Zoom
     let pdfDocInstance = null;
     let currentPdfPage = 1;
     let totalPdfPages = 0;
+    let pdfScale = 1.0;
+    let baseViewportWidth = 0;
 
     // --- MANEJO CANVAS FIRMA ---
     const canvas = document.getElementById('signatureCanvas');
@@ -353,7 +396,7 @@
       canvasHint.style.display = 'block';
     }
 
-    // 1. Cargar Ingenieros (Nivel 1 con Token)
+    // 1. Cargar Ingenieros
     async function fetchIngenieros() {
       const selectIng = document.getElementById('selectIngeniero');
       selectIng.innerHTML = '<option>Cargando ingenieros...</option>';
@@ -376,7 +419,7 @@
       }
     }
 
-    // 2. Al seleccionar Ingeniero -> Cargar sus Obras (Nivel 2 con Token)
+    // 2. Cargar Obras
     async function onIngenieroSelected() {
       const ingId = document.getElementById('selectIngeniero').value;
       const selectObra = document.getElementById('selectObra');
@@ -413,7 +456,7 @@
       }
     }
 
-    // 3. Al seleccionar Obra -> Cargar PDFs pendientes (Nivel 3 con Token)
+    // 3. Cargar PDFs pendientes
     async function onObraSelected() {
       const obraId = document.getElementById('selectObra').value;
       currentObraId = obraId;
@@ -450,7 +493,7 @@
       }
     }
 
-    // 4. Descargar PDF seleccionado con Token
+    // 4. Descargar PDF y Renderizar
     async function onPdfSelected() {
       const fileId = document.getElementById('selectPdf').value;
       if (!fileId) {
@@ -479,13 +522,14 @@
       }
     }
 
-    // --- RENDERIZADO VISOR DE PDF (PDF.JS) ---
+    // --- RENDERIZADO VISOR DE PDF CON ZOOM ---
     async function renderPdfDocument(pdfData) {
       try {
         const loadingTask = pdfjsLib.getDocument({ data: pdfData });
         pdfDocInstance = await loadingTask.promise;
         totalPdfPages = pdfDocInstance.numPages;
         currentPdfPage = 1;
+        pdfScale = 1.0; // Escala base ajustada al ancho del contenedor
 
         document.getElementById('previewCard').style.display = 'block';
         document.getElementById('pdfViewer').style.display = 'block';
@@ -502,13 +546,23 @@
       const renderCanvas = document.getElementById('pdfRenderCanvas');
       const renderCtx = renderCanvas.getContext('2d');
 
-      const containerWidth = document.getElementById('pdfViewer').clientWidth - 20;
+      const containerWidth = document.getElementById('pdfViewer').clientWidth - 28;
       const unscaledViewport = page.getViewport({ scale: 1 });
-      const scale = (containerWidth / unscaledViewport.width) * 1.5;
-      const viewport = page.getViewport({ scale: Math.max(scale, 1.2) });
+      
+      // Ajuste automático al ancho del celular multiplicado por el factor de zoom del usuario
+      const fitScale = (containerWidth / unscaledViewport.width);
+      const activeScale = Math.max(fitScale * pdfScale, 0.6);
+      
+      // Calidad nítida multiplicada por devicePixelRatio (2x en pantallas modernas)
+      const outputScale = window.devicePixelRatio || 1.5;
+      const viewport = page.getViewport({ scale: activeScale * outputScale });
 
-      renderCanvas.height = viewport.height;
       renderCanvas.width = viewport.width;
+      renderCanvas.height = viewport.height;
+      
+      // Tamaño visual en CSS para permitir el scroll horizontal fluido
+      renderCanvas.style.width = `${viewport.width / outputScale}px`;
+      renderCanvas.style.height = `${viewport.height / outputScale}px`;
 
       const renderContext = {
         canvasContext: renderCtx,
@@ -516,7 +570,21 @@
       };
       await page.render(renderContext).promise;
 
-      document.getElementById('pageInfo').textContent = `Página ${currentPdfPage} / ${totalPdfPages}`;
+      document.getElementById('pageInfo').textContent = `${currentPdfPage} / ${totalPdfPages}`;
+      document.getElementById('zoomLevel').textContent = `${Math.round(pdfScale * 100)}%`;
+    }
+
+    function zoomPdf(delta) {
+      const newScale = pdfScale + delta;
+      if (newScale >= 0.5 && newScale <= 3.0) { // Límite de 50% a 300% de zoom
+        pdfScale = newScale;
+        renderCurrentPage();
+      }
+    }
+
+    function resetZoom() {
+      pdfScale = 1.0;
+      renderCurrentPage();
     }
 
     function prevPdfPage() {
@@ -612,7 +680,6 @@
 
         await uploadToDrive(itemData);
 
-        // Limpiar
         clearSignature();
         document.getElementById('recibeNombre').value = '';
         document.getElementById('recibeCedula').value = '';
@@ -632,7 +699,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
-            key: API_SECRET, // Envío del Token de seguridad
+            key: API_SECRET,
             obraId: item.obraId,
             originalFileId: item.originalFileId,
             fileName: item.fileName,
